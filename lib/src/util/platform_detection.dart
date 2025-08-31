@@ -6,6 +6,60 @@ import 'package:flutter/foundation.dart';
 
 /// Helper class to detect platform-specific capabilities and configurations
 class PlatformDetection {
+  /// Parses OTEL_EXPORTER_OTLP_HEADERS environment variable into a map of headers
+  ///
+  /// The format is a comma-separated list of key-value pairs: "key1=value1,key2=value2"
+  /// 
+  /// Examples:
+  /// - "api-key=secret123" -> {"api-key": "secret123"}
+  /// - "authorization=Bearer token,content-type=application/json" -> 
+  ///   {"authorization": "Bearer token", "content-type": "application/json"}
+  /// 
+  /// Returns an empty map if the environment variable is not set or empty.
+  static Map<String, String> parseOtlpHeaders() {
+    const headersEnv = String.fromEnvironment('OTEL_EXPORTER_OTLP_HEADERS');
+    
+    if (headersEnv.isEmpty) {
+      return <String, String>{};
+    }
+
+    final headers = <String, String>{};
+    
+    // Split by comma and process each key-value pair
+    for (final pair in headersEnv.split(',')) {
+      final trimmedPair = pair.trim();
+      if (trimmedPair.isEmpty) continue;
+      
+      // Find the first '=' to split key and value
+      final equalIndex = trimmedPair.indexOf('=');
+      if (equalIndex == -1) {
+        // Invalid format - skip this pair
+        if (OTelLog.isWarn()) {
+          OTelLog.warn('Invalid header format in OTEL_EXPORTER_OTLP_HEADERS: "$trimmedPair" (missing "=")');
+        }
+        continue;
+      }
+      
+      final key = trimmedPair.substring(0, equalIndex).trim();
+      final value = trimmedPair.substring(equalIndex + 1).trim();
+      
+      if (key.isEmpty) {
+        if (OTelLog.isWarn()) {
+          OTelLog.warn('Invalid header format in OTEL_EXPORTER_OTLP_HEADERS: "$trimmedPair" (empty key)');
+        }
+        continue;
+      }
+      
+      headers[key] = value;
+    }
+    
+    if (OTelLog.isDebug() && headers.isNotEmpty) {
+      final headerKeys = headers.keys.join(', ');
+      OTelLog.debug('Parsed OTEL_EXPORTER_OTLP_HEADERS: $headerKeys');
+    }
+    
+    return headers;
+  }
   /// Returns true if the current platform is Flutter Web
   static bool get isWeb => kIsWeb;
 
@@ -31,6 +85,7 @@ class PlatformDetection {
     String? endpoint,
     bool insecure = false,
   }) {
+    final headers = parseOtlpHeaders();
     // Get endpoint from environment variable if not provided
     final envEndpoint = const String.fromEnvironment('OTEL_EXPORTER_OTLP_ENDPOINT');
     final resolvedEndpoint = endpoint ?? (envEndpoint.isNotEmpty ? envEndpoint : 'http://localhost:4317');
@@ -75,6 +130,7 @@ class PlatformDetection {
         OtlpHttpExporterConfig(
           endpoint: httpEndpoint,
           compression: false, // Web doesn't handle compression well
+          headers: headers,
         ),
       );
     } else {
@@ -94,6 +150,7 @@ class PlatformDetection {
         OtlpGrpcExporterConfig(
           endpoint: grpcEndpoint,
           insecure: insecure,
+          headers: headers,
         ),
       );
     }
@@ -114,6 +171,7 @@ class PlatformDetection {
     String? endpoint,
     bool insecure = false,
   }) {
+    final headers = parseOtlpHeaders();
     // Get endpoint from environment variable if not provided
     final envEndpoint = const String.fromEnvironment('OTEL_EXPORTER_OTLP_ENDPOINT');
     final resolvedEndpoint = endpoint ?? (envEndpoint.isNotEmpty ? envEndpoint : 'http://localhost:4317');
@@ -158,6 +216,7 @@ class PlatformDetection {
         OtlpHttpMetricExporterConfig(
           endpoint: httpEndpoint,
           compression: false, // Web doesn't handle compression well
+          headers: headers,
         ),
       );
     } else {
@@ -177,6 +236,7 @@ class PlatformDetection {
         OtlpGrpcMetricExporterConfig(
           endpoint: grpcEndpoint,
           insecure: insecure,
+          headers: headers,
         ),
       );
     }

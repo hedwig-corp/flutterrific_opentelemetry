@@ -231,6 +231,12 @@ class FlutterOTel {
       if (OTelLog.isDebug()) OTelLog.debug('Using endpoint from OTEL_EXPORTER_OTLP_ENDPOINT: $endpoint');
     }
     
+    // Check for headers from environment variables
+    const envHeaders = String.fromEnvironment('OTEL_EXPORTER_OTLP_HEADERS');
+    if (envHeaders.isNotEmpty && OTelLog.isDebug()) {
+      OTelLog.debug('Using headers from OTEL_EXPORTER_OTLP_HEADERS');
+    }
+    
     // For Flutter web or when explicitly configured to use HTTP/protobuf, adjust the endpoint
     final envProtocol = const String.fromEnvironment('OTEL_EXPORTER_OTLP_PROTOCOL');
     if (kIsWeb || (envProtocol.isNotEmpty && envProtocol.toLowerCase() == 'http/protobuf')) {
